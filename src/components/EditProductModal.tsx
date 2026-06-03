@@ -20,9 +20,10 @@ interface EditProductModalProps {
   };
   companyId: string;
   locationSystemEnabled: boolean;
+  currency?: string;
 }
 
-export default function EditProductModal({ product, companyId, locationSystemEnabled }: EditProductModalProps) {
+export default function EditProductModal({ product, companyId, locationSystemEnabled, currency = "TRY" }: EditProductModalProps) {
   const t = useTranslations("Dashboard");
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -99,7 +100,9 @@ export default function EditProductModal({ product, companyId, locationSystemEna
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">{t("unitPrice")}</label>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
+                    {t("unitPrice").replace("TL", currency === "USD" ? "$" : currency === "EUR" ? "€" : "₺")}
+                  </label>
                   <input name="price" type="number" step="0.01" defaultValue={product.price} className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none" />
                 </div>
 

@@ -34,6 +34,7 @@ export default async function StockListPage({
 
   // RBAC yetkileri
   const canSeePrices = firma.userRole === "Yönetici" || firma.userRole === "Yetkili";
+  const currencySymbol = (firma as any).currency === "USD" ? "$" : (firma as any).currency === "EUR" ? "€" : "₺";
 
   // Sorgu Koşulları
   const conditions = [eq(products.companyId, firma.id)];
@@ -102,7 +103,7 @@ export default async function StockListPage({
                   <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 whitespace-nowrap">{t("productStatus")}</th>
                   {canSeePrices && (
                     <>
-                      <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 whitespace-nowrap">{t("unitPrice")}</th>
+                      <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 whitespace-nowrap">{t("unitPrice").replace("TL", currencySymbol)}</th>
                       <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 whitespace-nowrap">{t("totalValue")}</th>
                     </>
                   )}
@@ -139,8 +140,8 @@ export default async function StockListPage({
                       </td>
                       {canSeePrices && (
                         <>
-                          <td className="px-6 py-4 text-right"><span className="text-white text-sm font-medium tabular-nums">{urun.price.toLocaleString()} TL</span></td>
-                          <td className="px-6 py-4 text-right"><span className="text-emerald-400 text-sm font-bold tabular-nums">{((urun.currentStock ?? 0) * urun.price).toLocaleString()} TL</span></td>
+                          <td className="px-6 py-4 text-right"><span className="text-white text-sm font-medium tabular-nums">{urun.price.toLocaleString()} {currencySymbol}</span></td>
+                          <td className="px-6 py-4 text-right"><span className="text-emerald-400 text-sm font-bold tabular-nums">{((urun.currentStock ?? 0) * urun.price).toLocaleString()} {currencySymbol}</span></td>
                         </>
                       )}
                       <td className="px-6 py-4 text-right">

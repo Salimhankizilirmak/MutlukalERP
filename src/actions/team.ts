@@ -87,3 +87,14 @@ export async function updateCompanyWarehouseSettings(
   revalidatePath("/dashboard/team");
   revalidatePath("/dashboard");
 }
+
+export async function updateCompanyCurrency(companyId: string, currency: string) {
+  await db
+    .update(companies)
+    .set({ currency })
+    .where(eq(companies.id, companyId));
+
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/stock-list");
+}

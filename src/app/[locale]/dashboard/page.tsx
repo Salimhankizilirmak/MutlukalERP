@@ -38,6 +38,8 @@ export default async function DashboardPage({
 
   const t = await getTranslations("Dashboard");
 
+  const currencySymbol = (firma as any).currency === "USD" ? "$" : (firma as any).currency === "EUR" ? "€" : "₺";
+
   // RBAC yetkileri
   const canSeePrices = firma.userRole === "Yönetici" || firma.userRole === "Yetkili";
   const canManageProducts = ["Yönetici", "Super Admin", "Yetkili", "Mühendis"].includes(firma.userRole);
@@ -173,7 +175,7 @@ export default async function DashboardPage({
                 </div>
                 {deadStockReport ? (
                   <p className="text-white/90 text-[11px] leading-snug">
-                    {t("deadStockDesc", { count: deadStockReport.count, value: deadStockReport.totalValue.toLocaleString() })}
+                    {t("deadStockDesc", { count: deadStockReport.count, value: deadStockReport.totalValue.toLocaleString() }).replace("TL", currencySymbol)}
                   </p>
                 ) : (
                   <p className="text-white/60 text-[11px] italic">{t("noDeadStock")}</p>
@@ -237,7 +239,7 @@ export default async function DashboardPage({
                 <input id="product-stock" name="current_stock" type="number" min="0" defaultValue="0" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all" />
               </div>
               <div>
-                <label htmlFor="product-price" className="block text-xs font-medium text-slate-400 mb-1.5">{t("unitPrice")}</label>
+                <label htmlFor="product-price" className="block text-xs font-medium text-slate-400 mb-1.5">{t("unitPrice").replace("TL", currencySymbol)}</label>
                 <input id="product-price" name="price" type="number" step="0.01" min="0" defaultValue="0" className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all" />
               </div>
               <div>
@@ -305,7 +307,7 @@ export default async function DashboardPage({
                   <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 whitespace-nowrap">{t("productStatus")}</th>
                   {canSeePrices && (
                     <>
-                      <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 whitespace-nowrap">{t("unitPrice")}</th>
+                      <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 whitespace-nowrap">{t("unitPrice").replace("TL", currencySymbol)}</th>
                       <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 whitespace-nowrap">{t("totalValue")}</th>
                     </>
                   )}
@@ -354,8 +356,8 @@ export default async function DashboardPage({
                       </td>
                       {canSeePrices && (
                         <>
-                          <td className="px-6 py-4 text-right"><span className="text-white text-sm font-medium tabular-nums">{urun.price.toLocaleString()} TL</span></td>
-                          <td className="px-6 py-4 text-right"><span className="text-emerald-400 text-sm font-bold tabular-nums">{((urun.currentStock ?? 0) * urun.price).toLocaleString()} TL</span></td>
+                          <td className="px-6 py-4 text-right"><span className="text-white text-sm font-medium tabular-nums">{urun.price.toLocaleString()} {currencySymbol}</span></td>
+                          <td className="px-6 py-4 text-right"><span className="text-emerald-400 text-sm font-bold tabular-nums">{((urun.currentStock ?? 0) * urun.price).toLocaleString()} {currencySymbol}</span></td>
                         </>
                       )}
                       <td className="px-6 py-4 text-right">
@@ -379,6 +381,7 @@ export default async function DashboardPage({
                                 product={urun} 
                                 companyId={firma.id} 
                                 locationSystemEnabled={firma.locationSystemEnabled} 
+                                currency={firma.currency}
                               />
                               <DeleteProductButton productId={urun.id} companyId={firma.id} />
                             </>

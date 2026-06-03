@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import BOMToggle from "@/components/BOMToggle";
 import IdentityBinder from "@/components/IdentityBinder";
 import WarehouseSettings from "@/components/WarehouseSettings";
+import CurrencySettings from "@/components/CurrencySettings";
 
 export default async function SettingsPage() {
   const user = await currentUser();
@@ -52,6 +53,11 @@ export default async function SettingsPage() {
               initialValue={firma.bomSystemEnabled} 
             />
           </div>
+
+          <CurrencySettings
+            companyId={firma.id}
+            initialCurrency={firma.currency}
+          />
         </div>
 
         <IdentityBinder />

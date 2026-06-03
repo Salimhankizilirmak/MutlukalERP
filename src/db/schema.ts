@@ -14,6 +14,7 @@ export const companies = sqliteTable("companies", {
   locationFormat: text("location_format").notNull().default("free"),
   bomSystemEnabled: integer("bom_system_enabled", { mode: "boolean" }).notNull().default(false),
   welcomeEmailSent: integer("welcome_email_sent", { mode: "boolean" }).notNull().default(false),
+  currency: text("currency").notNull().default("TRY"),
 });
 
 export const productTrees = sqliteTable("product_trees", {
