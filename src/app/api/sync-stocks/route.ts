@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { kv } from "@vercel/kv";
+import { put } from "@vercel/blob";
 
 export async function POST(req: Request) {
   try {
@@ -17,23 +17,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid data format. 'stocks' array is required." }, { status: 400 });
     }
 
-    // Vercel KV'ye toplu yazma işlemi yapalım (pipeline)
-    const pipeline = kv.pipeline();
-    for (const item of stocks) {
-      if (item.id && typeof item.stock === "number") {
-        // Hem ham stok miktarını tutalım
-        pipeline.set(`stock:${item.id}`, item.stock);
-        // Hem de meta verisini tutalım
-        pipeline.set(`stock_meta:${item.id}`, {
-          name: item.name,
-          stock: item.stock,
-          updatedAt: new Date().toISOString(),
-        });
-      }
-    }
-    await pipeline.exec();
+    const payload = {
+      updatedAt: new Date().toISOString(),
+      stocks,
+    };
 
-    return NextResponse.json({ success: true, count: stocks.length });
+    // Vercel Blob'a yükle (stocks.json)
+    const blob = await put("stocks.json", JSON.stringify(payload), {
+      access: "public",
+      addRandomSuffix: false, // Her seferinde aynı isimle üzerine yazar
+    });
+
+    return NextResponse.json({ success: true, url: blob.url, count: stocks.length });
   } catch (e: any) {
     return NextResponse.json({ error: e.message || "Server Error" }, { status: 500 });
   }

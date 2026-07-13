@@ -23,7 +23,7 @@ async function syncStocks() {
 
     // Sadece aktif ve stok miktarı olan ürün/malzemeleri çekelim
     const products = db.prepare(`
-      SELECT id, name, current_stock as stock 
+      SELECT id, name, category_id as categoryId, sku, unit, critical_threshold as criticalThreshold, current_stock as stock 
       FROM products 
       WHERE is_active = 1
     `).all();

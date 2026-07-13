@@ -51,16 +51,33 @@ export async function StockPageServer({ categorySlug, searchParams }: Props) {
   let stats = { total: 0, critical: 0, outOfStock: 0 };
 
   if (process.env.VERCEL) {
-    const { kv } = require("@vercel/kv");
-    // Vercel KV'den tüm stock_meta anahtarlarını çekelim
-    const keys = await kv.keys("stock_meta:*");
-    const metaList = keys.length > 0 ? await kv.mget(...keys) : [];
-    
+    const { list } = require("@vercel/blob");
+    let blobList = [];
+    try {
+      const res = await list({ prefix: "stocks.json" });
+      blobList = res.blobs;
+    } catch (err) {
+      console.error("Vercel Blob listeleme hatası:", err);
+    }
+
+    const stocksBlob = blobList[0];
+    let payload: any = { stocks: [], updatedAt: "" };
+
+    if (stocksBlob) {
+      try {
+        const fetchRes = await fetch(stocksBlob.url, { cache: 'no-store' });
+        payload = await fetchRes.json();
+      } catch (err) {
+        console.error("Vercel Blob veri okuma hatası:", err);
+      }
+    }
+
+    const stocksList = payload.stocks || [];
+
     // Kategoriye ait olan ve filtreye uyanları bulalım
-    const allItems = metaList
-      .filter(Boolean)
-      .map((item: any, idx: number) => ({
-        id: keys[idx].replace("stock_meta:", ""),
+    const allItems = stocksList
+      .map((item: any) => ({
+        id: item.id,
         name: item.name,
         currentStock: item.stock,
         categoryId: item.categoryId || category.id,
@@ -86,8 +103,8 @@ export async function StockPageServer({ categorySlug, searchParams }: Props) {
       outOfStock: allItems.filter((i: any) => i.currentStock === 0).length,
     };
     
-    if (metaList.length > 0 && metaList[0]?.updatedAt) {
-      const d = new Date(metaList[0].updatedAt);
+    if (payload.updatedAt) {
+      const d = new Date(payload.updatedAt);
       lastSyncInfo = d.toLocaleTimeString("tr-TR") + " " + d.toLocaleDateString("tr-TR");
     }
   } else {
