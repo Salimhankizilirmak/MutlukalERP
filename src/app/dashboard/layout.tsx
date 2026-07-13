@@ -20,14 +20,22 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   if (!session) redirect("/login");
 
   // Kullanıcının güncel email bilgisini veritabanından sorgulayalım
-  const dbUser = await db
-    .select({ email: users.email })
-    .from(users)
-    .where(eq(users.id, session.userId))
-    .limit(1)
-    .then((r) => r[0] ?? null);
+  let hasEmail = true;
 
-  const hasEmail = !!dbUser?.email;
+  if (!process.env.VERCEL) {
+    try {
+      const dbUser = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, session.userId))
+        .limit(1)
+        .then((r) => r[0] ?? null);
+
+      hasEmail = !!dbUser?.email;
+    } catch (err) {
+      console.error("Dashboard yerel veritabanı email okuma hatası:", err);
+    }
+  }
 
   // Eğer müdür ise, kullanıcılar ve mail ayarları sekmesini listeye dinamik olarak ekle
   const dynamicNavItems = [...NAV_ITEMS];

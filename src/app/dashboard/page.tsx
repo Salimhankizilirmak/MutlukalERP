@@ -18,14 +18,23 @@ export default async function DashboardIndexPage() {
   const userId = session.userId;
 
   // 1) Kullanıcının kayıtlı düzen şablonunu çek
-  const [layoutRecord] = await db
-    .select()
-    .from(userDashboardLayouts)
-    .where(eq(userDashboardLayouts.userId, userId))
-    .limit(1);
+  let initialLayout = null;
+  let initialVersion = 1;
 
-  const initialLayout = layoutRecord ? layoutRecord.layoutData : null;
-  const initialVersion = layoutRecord ? layoutRecord.version : 1;
+  if (!process.env.VERCEL) {
+    try {
+      const [layoutRecord] = await db
+        .select()
+        .from(userDashboardLayouts)
+        .where(eq(userDashboardLayouts.userId, userId))
+        .limit(1);
+
+      initialLayout = layoutRecord ? layoutRecord.layoutData : null;
+      initialVersion = layoutRecord ? layoutRecord.version : 1;
+    } catch (err) {
+      console.error("Dashboard yerel veritabanı düzen okuma hatası:", err);
+    }
+  }
 
   // 2) Stok Verilerini Çek (Bulut/Vercel ve Yerel Uyumlu)
   let stocksData: any[] = [];
