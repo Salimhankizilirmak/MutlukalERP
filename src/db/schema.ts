@@ -255,6 +255,23 @@ export const mailConfigurations = sqliteTable("mail_configurations", {
   alertType: text("alert_type").notNull(), // "marketing_approval" | "stock_shortage" | "purchase_lead" | "logistic_arrival"
 });
 
+// ─── Kullanıcı Dashboard Yerleşim Şeması Tablosu ───────────────────────────────
+export const userDashboardLayouts = sqliteTable("user_dashboard_layouts", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull(), // FK -> users.id
+  layoutData: text("layout_data").notNull(), // JSON string formatında koordinat ve boyutlar
+  isSynced: integer("is_synced", { mode: "boolean" }).notNull().default(false),
+  version: integer("version").notNull().default(1),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
 // ─── Type Helpers ──────────────────────────────────────────────────────────────
 export type Company = typeof companies.$inferSelect;
 export type User = typeof users.$inferSelect;
@@ -276,3 +293,5 @@ export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
 export type LogisticBooking = typeof logisticBookings.$inferSelect;
 export type ShiftReport = typeof shiftReports.$inferSelect;
 export type MailConfiguration = typeof mailConfigurations.$inferSelect;
+export type UserDashboardLayout = typeof userDashboardLayouts.$inferSelect;
+export type NewUserDashboardLayout = typeof userDashboardLayouts.$inferInsert;

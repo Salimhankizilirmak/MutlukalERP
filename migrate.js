@@ -113,6 +113,17 @@ async function migrate() {
       alert_type TEXT NOT NULL
     )`);
 
+    // User Dashboard Layouts Table
+    await client.execute(`CREATE TABLE IF NOT EXISTS user_dashboard_layouts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      layout_data TEXT NOT NULL,
+      is_synced INTEGER NOT NULL DEFAULT 0,
+      version INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`);
+
     // Seed some initial machines if empty
     const machinesCheck = await client.execute("SELECT count(*) as count FROM machines");
     if (machinesCheck.rows[0].count === 0) {

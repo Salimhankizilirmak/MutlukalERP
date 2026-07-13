@@ -14,6 +14,7 @@ import {
   shiftReports,
   mailConfigurations,
   stockMovements,
+  userDashboardLayouts,
 } from "@/db/schema";
 import { eq, and, asc, sql } from "drizzle-orm";
 import { getSession } from "@/lib/session";
@@ -1412,4 +1413,56 @@ export async function deleteMachineCapacity(id: string) {
   await db.delete(machineCapacities).where(eq(machineCapacities.id, id));
   return { success: true };
 }
+
+export async function saveDashboardLayoutAction(layoutData: string, clientVersion: number) {
+  const session = await getSession();
+  if (!session) throw new Error("Oturum bulunamadı.");
+  const userId = session.userId;
+
+  return await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(userDashboardLayouts)
+      .where(eq(userDashboardLayouts.userId, userId))
+      .limit(1);
+
+    if (existing) {
+      if (existing.version > clientVersion) {
+        return {
+          success: false,
+          conflict: true,
+          layoutData: existing.layoutData,
+          version: existing.version,
+        };
+      }
+
+      const nextVersion = existing.version + 1;
+      await tx
+        .update(userDashboardLayouts)
+        .set({
+          layoutData,
+          isSynced: true,
+          version: nextVersion,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(userDashboardLayouts.userId, userId));
+
+      return { success: true, version: nextVersion };
+    } else {
+      const newId = crypto.randomUUID();
+      await tx.insert(userDashboardLayouts).values({
+        id: newId,
+        userId,
+        layoutData,
+        isSynced: true,
+        version: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      return { success: true, version: 1 };
+    }
+  });
+}
+
 
