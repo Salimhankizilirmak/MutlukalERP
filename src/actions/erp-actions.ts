@@ -15,6 +15,7 @@ import {
   mailConfigurations,
   stockMovements,
   userDashboardLayouts,
+  categories,
 } from "@/db/schema";
 import { eq, and, asc, sql } from "drizzle-orm";
 import { getSession } from "@/lib/session";
@@ -1089,6 +1090,7 @@ export async function syncWorkOrdersFromExcel() {
           averageWastePercentage: 5,
           attributes: "",
           isActive: true,
+          externalId: null,
           createdAt: "",
         });
       }
@@ -1492,6 +1494,133 @@ export async function resetDashboardLayoutAction() {
       layoutData: JSON.stringify(defaultLayout),
       version: 1
     };
+  });
+}
+
+export async function exportExcelStocksAction() {
+  const session = await getSession();
+  if (!session) throw new Error("Oturum bulunamadı.");
+
+  const allProducts = await db
+    .select({
+      id: products.id,
+      externalId: products.externalId,
+      name: products.name,
+      sku: products.sku,
+      currentStock: products.currentStock,
+      criticalThreshold: products.criticalThreshold,
+      unit: products.unit,
+      categoryName: categories.name,
+    })
+    .from(products)
+    .innerJoin(categories, eq(products.categoryId, categories.id))
+    .where(eq(products.isActive, true));
+
+  const { ExcelSyncEngine } = require("@/lib/excel/ExcelSyncEngine");
+  const excelBase64 = ExcelSyncEngine.generateTemplate(allProducts);
+  return { success: true, base64: excelBase64 };
+}
+
+export async function importExcelStocksAction(rows: any[]) {
+  const session = await getSession();
+  if (!session) throw new Error("Oturum bulunamadı.");
+  const companyId = "mutlukal-depo-001";
+
+  return await db.transaction(async (tx) => {
+    const existingCats = await tx.select().from(categories);
+    const catMap = new Map(existingCats.map(c => [c.name.toLowerCase().trim(), c.id]));
+
+    for (const row of rows) {
+      const { externalId, name, sku, currentStock, criticalThreshold, unit, categoryName } = row;
+
+      const catKey = categoryName.toLowerCase().trim();
+      let categoryId = catMap.get(catKey);
+
+      if (!categoryId) {
+        categoryId = `cat-${catKey.replace(/[^a-z0-9]/g, "-")}`;
+        await tx.insert(categories).values({
+          id: categoryId,
+          name: categoryName,
+          slug: catKey.replace(/[^a-z0-9]/g, "-"),
+          icon: "📦",
+          color: "#6366f1",
+        });
+        catMap.set(catKey, categoryId);
+      }
+
+      let matchedProduct = null;
+      if (externalId) {
+        [matchedProduct] = await tx
+          .select()
+          .from(products)
+          .where(eq(products.externalId, externalId))
+          .limit(1);
+
+        if (!matchedProduct) {
+          [matchedProduct] = await tx
+            .select()
+            .from(products)
+            .where(eq(products.id, externalId))
+            .limit(1);
+        }
+      }
+
+      if (matchedProduct) {
+        const stockDiff = currentStock - matchedProduct.currentStock;
+        
+        await tx
+          .update(products)
+          .set({
+            name,
+            sku,
+            currentStock,
+            criticalThreshold,
+            unit,
+            categoryId,
+          })
+          .where(eq(products.id, matchedProduct.id));
+
+        if (stockDiff !== 0) {
+          await tx.insert(stockMovements).values({
+            id: crypto.randomUUID(),
+            productId: matchedProduct.id,
+            companyId,
+            type: stockDiff > 0 ? "in" : "out",
+            quantity: Math.abs(stockDiff),
+            source: "excel_sync",
+          });
+        }
+      } else {
+        const productId = crypto.randomUUID();
+        const pExtId = externalId || crypto.randomUUID();
+
+        await tx.insert(products).values({
+          id: productId,
+          companyId,
+          categoryId,
+          name,
+          sku,
+          currentStock,
+          criticalThreshold,
+          unit,
+          isActive: true,
+          externalId: pExtId,
+        });
+
+        if (currentStock > 0) {
+          await tx.insert(stockMovements).values({
+            id: crypto.randomUUID(),
+            productId,
+            companyId,
+            type: "in",
+            quantity: currentStock,
+            source: "excel_sync",
+          });
+        }
+      }
+    }
+
+    return { success: true };
   });
 }
 

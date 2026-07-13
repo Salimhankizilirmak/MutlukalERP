@@ -20,6 +20,10 @@ async function migrate() {
       console.log('Adding column "average_waste_percentage" to table "products"...');
       await client.execute("ALTER TABLE products ADD COLUMN average_waste_percentage REAL NOT NULL DEFAULT 0");
     }
+    if (!cols.includes('external_id')) {
+      console.log('Adding column "external_id" to table "products"...');
+      await client.execute("ALTER TABLE products ADD COLUMN external_id TEXT");
+    }
 
     // 2) Yeni tabloları oluşturma
     console.log('Creating new tables if not exist...');

@@ -2,12 +2,14 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Reorder, useDragControls } from "framer-motion";
-import { saveDashboardLayoutAction, resetDashboardLayoutAction } from "@/actions/erp-actions";
+import { saveDashboardLayoutAction, resetDashboardLayoutAction, exportExcelStocksAction } from "@/actions/erp-actions";
 import StockStatusWidget from "./widgets/StockStatusWidget";
 import ActiveOrdersWidget from "./widgets/ActiveOrdersWidget";
 import DashboardHeader from "./DashboardHeader";
+import ExcelUploadModal from "../excel/ExcelUploadModal";
 import { toast } from "sonner";
 import WidgetErrorBoundary from "./WidgetErrorBoundary";
+import { useRouter } from "next/navigation";
 
 interface Props {
   username: string;
@@ -62,6 +64,8 @@ export default function WidgetGrid({ username, role, initialLayout, initialVersi
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("synced");
   const [version, setVersion] = useState(initialVersion);
   const [isResetting, setIsResetting] = useState(false);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const router = useRouter();
   
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -104,7 +108,6 @@ export default function WidgetGrid({ username, role, initialLayout, initialVersi
 
   // Düzeni Sıfırlama (Reset Layout) Aksiyonu
   const handleReset = async () => {
-    // 1) Debounce kuyruğunda bekleyen kaydetme işlemini tamamen iptal et (clearTimeout)
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
@@ -125,6 +128,27 @@ export default function WidgetGrid({ username, role, initialLayout, initialVersi
     }
   };
 
+  // Excel Şablonunu İndirme (Export)
+  const handleExport = async () => {
+    try {
+      const res = await exportExcelStocksAction();
+      if (res.success && res.base64) {
+        const link = document.createElement("a");
+        link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${res.base64}`;
+        link.download = `mutlukal_stok_sablonu_${new Date().toISOString().split("T")[0]}.xlsx`;
+        link.click();
+        toast.success("Excel şablonu başarıyla indirildi. ✓");
+      }
+    } catch (err) {
+      toast.error("Excel şablonu oluşturulurken hata oluştu.");
+    }
+  };
+
+  // Excel İçe Aktarım Başarı Callback'i (Reaktif Yenileme)
+  const handleImportSuccess = () => {
+    router.refresh(); // Sayfayı yenilemeden veriyi reaktif olarak sunucudan tekrar çeker
+  };
+
   // Temizleme işlemi
   useEffect(() => {
     return () => {
@@ -134,12 +158,21 @@ export default function WidgetGrid({ username, role, initialLayout, initialVersi
 
   return (
     <div className="space-y-6">
-      {/* Sayfa Üst Başlığı, Eşitleme Göstergesi ve Sıfırlama Butonu */}
+      {/* Sayfa Üst Başlığı, Eşitleme Göstergesi, Excel İşlemleri ve Sıfırlama Butonu */}
       <DashboardHeader 
         username={username}
         status={syncStatus}
         onReset={handleReset}
         isResetting={isResetting}
+        onImportClick={() => setIsUploadOpen(true)}
+        onExportClick={handleExport}
+      />
+
+      {/* Excel Yükleme Önizleme Modali */}
+      <ExcelUploadModal 
+        isOpen={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
+        onSuccess={handleImportSuccess}
       />
 
       {/* Sürükle Bırak Grubu */}

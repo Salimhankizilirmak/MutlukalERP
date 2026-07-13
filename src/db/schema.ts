@@ -63,6 +63,7 @@ export const products = sqliteTable("products", {
   // Koli/Poşet için: { stokKodu, tedarikci }
   attributes: text("attributes"),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  externalId: text("external_id"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),
