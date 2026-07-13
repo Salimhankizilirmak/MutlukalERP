@@ -266,6 +266,28 @@ export async function approveOrder(orderId: string) {
 }
 
 export async function getMarketingDashboardData() {
+  if (process.env.VERCEL) {
+    return {
+      orders: [
+        { id: "ord-1", quantity: 1500, status: "pending", orderedAt: "2026-07-13", expectedDeliveryDate: "2026-07-20", customerName: "A101", productName: "Triton Koli / A101", productId: "prod-1", customerId: "cust-1" },
+        { id: "ord-2", quantity: 2000, status: "approved", orderedAt: "2026-07-12", expectedDeliveryDate: "2026-07-18", customerName: "BİM", productName: "Triton Poşet / BİM", productId: "prod-2", customerId: "cust-2" },
+      ],
+      customers: [
+        { id: "cust-1", name: "A101", createdAt: "2026-07-13" },
+        { id: "cust-2", name: "BİM", createdAt: "2026-07-13" },
+        { id: "cust-3", name: "Migros", createdAt: "2026-07-13" },
+      ],
+      products: [
+        { id: "prod-1", name: "Triton Koli / A101", sku: "TRITON-KOLI-A101", currentStock: 450, unit: "Koli", criticalThreshold: 10, unitPrice: 15, averageWastePercentage: 5, attributes: { musteri: "A101", temelUrun: "Triton Koli", cesit: "A101", cap: "10", paketIci: 10, koliIci: 100, gramaj: 25 }, isActive: true, createdAt: "", costAnalysis: { unitCost: 10.5, componentsCost: 10.0, wasteAmount: 0.5, details: [] } },
+        { id: "prod-2", name: "Triton Poşet / BİM", sku: "TRITON-POSET-BIM", currentStock: 800, unit: "Adet", criticalThreshold: 10, unitPrice: 2, averageWastePercentage: 2, attributes: { musteri: "BİM", temelUrun: "Triton Poşet", cesit: "BİM", cap: "12", paketIci: 10, koliIci: 100, gramaj: 30 }, isActive: true, createdAt: "", costAnalysis: { unitCost: 1.2, componentsCost: 1.1, wasteAmount: 0.1, details: [] } },
+      ],
+      rawMaterials: [
+        { id: "raw-1", name: "Koli Kartonu", sku: "KARTON-001", currentStock: 1000, unit: "Adet", criticalThreshold: 200, unitPrice: 12, averageWastePercentage: 1, attributes: "", isActive: true, createdAt: "", categoryId: "cat-koli" },
+        { id: "raw-2", name: "Katkı Maddesi Premium", sku: "KATKI-001", currentStock: 150, unit: "Kg", criticalThreshold: 20, unitPrice: 45, averageWastePercentage: 3, attributes: "", isActive: true, createdAt: "", categoryId: "cat-katki" },
+      ],
+    };
+  }
+
   const allOrders = await db
     .select({
       id: orders.id,
@@ -305,6 +327,22 @@ export async function getMarketingDashboardData() {
 // ==========================================
 
 export async function getPurchasingDashboardData() {
+  if (process.env.VERCEL) {
+    return {
+      materials: [
+        { id: "raw-1", name: "Koli Kartonu", sku: "KARTON-001", currentStock: 1000, unit: "Adet", criticalThreshold: 200, unitPrice: 12, averageWastePercentage: 1, categoryId: "cat-koli", attributes: "", isActive: true, createdAt: "" },
+        { id: "raw-2", name: "Katkı Maddesi Premium", sku: "KATKI-001", currentStock: 150, unit: "Kg", criticalThreshold: 20, unitPrice: 45, averageWastePercentage: 3, categoryId: "cat-katki", attributes: "", isActive: true, createdAt: "" },
+      ],
+      purchaseOrders: [
+        { id: "po-1", quantity: 5000, leadDate: "2026-07-20", status: "ordered", materialName: "Koli Kartonu", productId: "raw-1" },
+        { id: "po-2", quantity: 300, leadDate: "2026-07-25", status: "pending", materialName: "Katkı Maddesi Premium", productId: "raw-2" },
+      ],
+      truckBookings: [
+        { id: "lb-1", truckArrivalTime: "2026-07-18 10:00", driverInfo: "Ahmet Yılmaz / 34 ABC 123", status: "scheduled", customerName: "A101", productName: "Triton Koli / A101", quantity: 1500 },
+      ],
+    };
+  }
+
   // Tüm hammadde ve ambalaj kategorilerini alalım (urun dışındakiler)
   const allProducts = await db
     .select()
@@ -394,6 +432,21 @@ export async function createPurchaseOrder(productId: string, quantity: number, l
 // ==========================================
 
 export async function getLogisticsDashboardData() {
+  if (process.env.VERCEL) {
+    return {
+      bookings: [
+        { id: "lb-1", truckArrivalTime: "2026-07-18 10:00", driverInfo: "Ahmet Yılmaz / 34 ABC 123", status: "scheduled", orderId: "ord-2", orderQty: 2000, customerName: "BİM", productName: "Triton Poşet / BİM" },
+      ],
+      eligibleOrders: [
+        { id: "ord-1", quantity: 1500, customerName: "A101", productName: "Triton Koli / A101" },
+        { id: "ord-2", quantity: 2000, customerName: "BİM", productName: "Triton Poşet / BİM" },
+      ],
+      plannedJobs: [
+        { id: "plan-1", machineName: "Makine 1", sequence: 1, scheduledDate: "2026-07-14", estimatedHours: 4.5, status: "scheduled", orderQty: 2000, customerName: "BİM", productName: "Triton Poşet / BİM", truckArrivalTime: "2026-07-18 10:00", driverInfo: "Ahmet Yılmaz / 34 ABC 123" },
+      ],
+    };
+  }
+
   const allBookings = await db
     .select({
       id: logisticBookings.id,
@@ -515,6 +568,29 @@ export async function saveLogisticBooking(orderId: string, truckArrivalTime: str
 export async function getProductionDashboardData() {
   const session = await getSession();
   if (!session) throw new Error("Oturum bulunamadı.");
+
+  if (process.env.VERCEL) {
+    return {
+      machines: [
+        { id: "machine-makine-1", companyId: "mutlukal-depo-001", name: "Makine 1", isActive: true },
+        { id: "machine-makine-2", companyId: "mutlukal-depo-001", name: "Makine 2", isActive: true },
+      ],
+      pendingOrders: [
+        { id: "ord-1", quantity: 1500, customerName: "A101", productName: "Triton Koli / A101", productId: "prod-1", expectedDeliveryDate: "2026-07-20", factory: "mutlukal" },
+      ],
+      plannedJobs: [
+        { id: "plan-1", machineId: "machine-makine-1", sequence: 1, scheduledDate: "2026-07-14", estimatedHours: 4.5, actualProducedQty: 0, status: "running", orderId: "ord-2", orderQty: 2000, customerName: "BİM", productName: "Triton Poşet / BİM", productId: "prod-2", expectedDeliveryDate: "2026-07-18", truckArrivalTime: "2026-07-18 10:00", factory: "mutlukal" },
+      ],
+      activePOs: [
+        { materialName: "Koli Kartonu", quantity: 5000, leadDate: "2026-07-20", status: "pending" },
+      ],
+      capacities: [],
+      allProducts: [
+        { id: "prod-1", companyId: "mutlukal-depo-001", categoryId: "cat-urun", name: "Triton Koli / A101", sku: "TRITON-KOLI-A101", currentStock: 450, unit: "Koli", criticalThreshold: 10, unitPrice: 15, averageWastePercentage: 5, attributes: "{}", isActive: true, externalId: null, createdAt: "" },
+      ],
+      allProductTrees: [],
+    };
+  }
 
   const allMachines = await db.select().from(machines).where(eq(machines.isActive, true));
 
