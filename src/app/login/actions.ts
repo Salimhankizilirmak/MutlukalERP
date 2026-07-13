@@ -15,6 +15,31 @@ export async function loginAction(_: unknown, formData: FormData) {
     return { error: "Kullanıcı adı ve şifre gereklidir." };
   }
 
+  if (process.env.VERCEL) {
+    const mockUsers: Record<string, any> = {
+      mudur: { id: "user-mudur", username: "mudur", fullName: "Müdür Bey", role: "Müdür", companyId: "mutlukal-depo-001" },
+      personel: { id: "user-personel", username: "personel", fullName: "Ahmet Abi", role: "Personel", companyId: "mutlukal-depo-001" },
+      satin_alma: { id: "user-satin", username: "satin_alma", fullName: "Satın Alma Sorumlusu", role: "Satın Alma", companyId: "mutlukal-depo-001" },
+      lojistik: { id: "user-lojistik", username: "lojistik", fullName: "Lojistik Sorumlusu", role: "Lojistik", companyId: "mutlukal-depo-001" },
+    };
+
+    const user = mockUsers[username.toLowerCase()];
+    if (!user || password !== "123456") {
+      return { error: "Kullanıcı adı veya şifre hatalı." };
+    }
+
+    const token = await createSession({
+      userId: user.id,
+      username: user.username,
+      fullName: user.fullName,
+      role: user.role,
+      companyId: user.companyId,
+    });
+
+    await setSessionCookie(token);
+    redirect("/dashboard");
+  }
+
   const user = await db
     .select()
     .from(users)
