@@ -2,19 +2,23 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Reorder, useDragControls } from "framer-motion";
-import { saveDashboardLayoutAction } from "@/actions/erp-actions";
+import { saveDashboardLayoutAction, resetDashboardLayoutAction } from "@/actions/erp-actions";
 import StockStatusWidget from "./widgets/StockStatusWidget";
 import ActiveOrdersWidget from "./widgets/ActiveOrdersWidget";
+import DashboardHeader from "./DashboardHeader";
 import { toast } from "sonner";
 import WidgetErrorBoundary from "./WidgetErrorBoundary";
 
 interface Props {
+  username: string;
   role: string;
   initialLayout: string | null;
   initialVersion: number;
   stocksData: any[];
   ordersData: any[];
 }
+
+type SyncStatus = "synced" | "syncing" | "offline";
 
 function WidgetCardWrapper({ id, value, children }: { id: string; value: string; children: (dragHandleProps: any) => React.ReactNode }) {
   const dragControls = useDragControls();
@@ -42,53 +46,52 @@ function WidgetCardWrapper({ id, value, children }: { id: string; value: string;
   );
 }
 
-export default function WidgetGrid({ role, initialLayout, initialVersion, stocksData, ordersData }: Props) {
+export default function WidgetGrid({ username, role, initialLayout, initialVersion, stocksData, ordersData }: Props) {
   // Rol bazlı varsayılan yerleşim sıralamaları
   const getDefaultLayoutByRole = (userRole: string): string[] => {
     switch (userRole) {
       case "Personel":
-        return ["stocks"]; // Personel sadece stok durumunu görebilir (Fiyat/Sipariş yetkisi yok)
-      case "Müdür":
-      case "Yetkili":
-      case "Satın Alma":
+        return ["stocks"];
       default:
-        return ["stocks", "orders"]; // Yetkililer her iki widget'ı da görebilir
+        return ["stocks", "orders"];
     }
   };
 
   const defaultOrder = initialLayout ? JSON.parse(initialLayout) : getDefaultLayoutByRole(role);
   const [items, setItems] = useState<string[]>(defaultOrder);
-  const [isSynced, setIsSynced] = useState(true);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("synced");
   const [version, setVersion] = useState(initialVersion);
+  const [isResetting, setIsResetting] = useState(false);
   
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Debounced DB Kaydı ve Offline-First Akışı
   const triggerDebouncedSave = (newLayout: string[]) => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    setIsSynced(false); // Çevrimdışı mod desteği için anında senkronize değil durumuna al
+    setSyncStatus("syncing"); // Eşitleniyor moduna al (Stripe yavaşça yanıp sönen amber)
 
     timeoutRef.current = setTimeout(async () => {
       try {
         const res = await saveDashboardLayoutAction(JSON.stringify(newLayout), version);
         
         if (res.success) {
-          setIsSynced(true);
+          setSyncStatus("synced");
           setVersion(res.version);
           toast.success("Panel düzeni kaydedildi. ✓");
         } else if (res.conflict) {
-          // Çatışma çözümü: Buluttaki/Sunucudaki güncel versiyonu ve yerleşimi geri yükle
-          toast.warning("Çakışma algılandı. Yerleşim güncellendi.");
+          // Çatışma çözümü (Force Sync): Buluttaki/Sunucudaki güncel versiyonu ve yerleşimi geri yükle
+          toast.warning("Çakışma algılandı. Sunucu düzeni geri yüklendi.");
           if (res.layoutData) {
             setItems(JSON.parse(res.layoutData));
           }
           if (res.version) {
             setVersion(res.version);
           }
-          setIsSynced(true);
+          setSyncStatus("synced");
         }
       } catch (err: any) {
-        // Hata durumunda (örneğin internet kesildiğinde) arayüz kilitlenmez, isSynced false olarak kalır
+        // Hata veya internet kopmasında durum 'offline' olur (Yerelde Güvende amber göstergesi)
+        setSyncStatus("offline");
         console.warn("Çevrimdışı Mod: Değişiklik yerel olarak uygulandı.");
       }
     }, 1000);
@@ -99,6 +102,29 @@ export default function WidgetGrid({ role, initialLayout, initialVersion, stocks
     triggerDebouncedSave(newItems);
   };
 
+  // Düzeni Sıfırlama (Reset Layout) Aksiyonu
+  const handleReset = async () => {
+    // 1) Debounce kuyruğunda bekleyen kaydetme işlemini tamamen iptal et (clearTimeout)
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    setIsResetting(true);
+    try {
+      const res = await resetDashboardLayoutAction();
+      if (res.success) {
+        setItems(JSON.parse(res.layoutData));
+        setVersion(res.version);
+        setSyncStatus("synced");
+        toast.success("Panel düzeni varsayılan fabrika ayarlarına sıfırlandı. ✓");
+      }
+    } catch (err: any) {
+      toast.error("Düzen sıfırlanırken hata oluştu.");
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   // Temizleme işlemi
   useEffect(() => {
     return () => {
@@ -107,27 +133,14 @@ export default function WidgetGrid({ role, initialLayout, initialVersion, stocks
   }, []);
 
   return (
-    <div className="space-y-4">
-      {/* Senkronizasyon ve Rol Durum Çubuğu */}
-      <div className="flex items-center justify-between bg-slate-900/60 border border-slate-800/80 px-4 py-2.5 rounded-2xl">
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
-          <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-          <span>Yetki Seviyesi: <strong className="text-white">{role}</strong></span>
-        </div>
-
-        {/* Offline-First Durum Göstergesi */}
-        <div className="flex items-center gap-1.5 text-[10px] font-bold">
-          {isSynced ? (
-            <span className="text-emerald-400 bg-emerald-500/10 px-2.5 py-1 border border-emerald-500/20 rounded-lg">
-              ● Senkronize Edildi
-            </span>
-          ) : (
-            <span className="text-amber-400 bg-amber-500/10 px-2.5 py-1 border border-amber-500/20 rounded-lg animate-pulse">
-              ▲ Değişiklikler Kaydediliyor (Çevrimdışı Hazır)
-            </span>
-          )}
-        </div>
-      </div>
+    <div className="space-y-6">
+      {/* Sayfa Üst Başlığı, Eşitleme Göstergesi ve Sıfırlama Butonu */}
+      <DashboardHeader 
+        username={username}
+        status={syncStatus}
+        onReset={handleReset}
+        isResetting={isResetting}
+      />
 
       {/* Sürükle Bırak Grubu */}
       <Reorder.Group

@@ -1465,4 +1465,34 @@ export async function saveDashboardLayoutAction(layoutData: string, clientVersio
   });
 }
 
+export async function resetDashboardLayoutAction() {
+  const session = await getSession();
+  if (!session) throw new Error("Oturum bulunamadı.");
+  const userId = session.userId;
+  const role = session.role;
+
+  const getDefaultLayoutByRole = (userRole: string): string[] => {
+    switch (userRole) {
+      case "Personel":
+        return ["stocks"];
+      default:
+        return ["stocks", "orders"];
+    }
+  };
+
+  const defaultLayout = getDefaultLayoutByRole(role);
+
+  return await db.transaction(async (tx) => {
+    await tx
+      .delete(userDashboardLayouts)
+      .where(eq(userDashboardLayouts.userId, userId));
+
+    return {
+      success: true,
+      layoutData: JSON.stringify(defaultLayout),
+      version: 1
+    };
+  });
+}
+
 

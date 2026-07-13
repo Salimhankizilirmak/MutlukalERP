@@ -100,14 +100,8 @@ export default async function DashboardIndexPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-black text-white tracking-tight">👋 Hoş Geldiniz, {session.username}</h1>
-        <p className="text-slate-400 text-xs mt-1">
-          Kişiselleştirilmiş widget kontrol paneliniz. Sürükleyip bırakarak düzeninizi değiştirebilirsiniz.
-        </p>
-      </div>
-
       <WidgetGrid
+        username={session.username}
         role={role}
         initialLayout={initialLayout}
         initialVersion={initialVersion}
