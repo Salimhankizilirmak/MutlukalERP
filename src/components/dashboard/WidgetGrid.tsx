@@ -6,6 +6,7 @@ import { saveDashboardLayoutAction } from "@/actions/erp-actions";
 import StockStatusWidget from "./widgets/StockStatusWidget";
 import ActiveOrdersWidget from "./widgets/ActiveOrdersWidget";
 import { toast } from "sonner";
+import WidgetErrorBoundary from "./WidgetErrorBoundary";
 
 interface Props {
   role: string;
@@ -140,7 +141,9 @@ export default function WidgetGrid({ role, initialLayout, initialVersion, stocks
             return (
               <WidgetCardWrapper key="stocks" id="stocks" value="stocks">
                 {(dragHandleProps) => (
-                  <StockStatusWidget stocks={stocksData} dragHandleProps={dragHandleProps} />
+                  <WidgetErrorBoundary>
+                    <StockStatusWidget stocks={stocksData} dragHandleProps={dragHandleProps} />
+                  </WidgetErrorBoundary>
                 )}
               </WidgetCardWrapper>
             );
@@ -150,7 +153,9 @@ export default function WidgetGrid({ role, initialLayout, initialVersion, stocks
             return (
               <WidgetCardWrapper key="orders" id="orders" value="orders">
                 {(dragHandleProps) => (
-                  <ActiveOrdersWidget workOrders={ordersData} dragHandleProps={dragHandleProps} />
+                  <WidgetErrorBoundary>
+                    <ActiveOrdersWidget workOrders={ordersData} dragHandleProps={dragHandleProps} />
+                  </WidgetErrorBoundary>
                 )}
               </WidgetCardWrapper>
             );
