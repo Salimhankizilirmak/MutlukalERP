@@ -1,14 +1,13 @@
 import { defineConfig } from "drizzle-kit";
-import * as dotenv from "dotenv";
+import path from "path";
 
-dotenv.config({ path: ".env.local" });
+const dbPath = process.env.DATABASE_URL ?? `file:${path.join(process.cwd(), "mutlukal.db")}`;
 
 export default defineConfig({
   schema: "./src/db/schema.ts",
   out: "./drizzle",
   dialect: "turso",
   dbCredentials: {
-    url: process.env.TURSO_DATABASE_URL!,
-    authToken: process.env.TURSO_AUTH_TOKEN!,
+    url: dbPath,
   },
 });

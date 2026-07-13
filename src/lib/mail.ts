@@ -1,137 +1,143 @@
 import nodemailer from "nodemailer";
+import fs from "fs";
+import path from "path";
 
-// Transporter'ı dinamik olarak oluşturacağız ki Next.js serverless ortamında process.env okunsun
+// SMTP Yapılandırması (Müşteri kendi SMTP bilgilerini .env.local üzerinden girebilir)
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT || "587"),
+  secure: process.env.SMTP_SECURE === "true", // true for 465, false for other ports
+  auth: {
+    user: process.env.SMTP_USER || "test@gmail.com",
+    pass: process.env.SMTP_PASS || "password",
+  },
+});
 
-export const sendMail = async ({ 
-  to, 
-  subject, 
-  html 
-}: { 
-  to: string; 
-  subject: string; 
-  html: string 
-}) => {
+export async function sendEmail({
+  to,
+  subject,
+  html,
+  text,
+}: {
+  to: string;
+  subject: string;
+  html?: string;
+  text?: string;
+}) {
+  const from = `"Mutlukal Depo" <${process.env.SMTP_FROM || "mutlukaldepo@gmail.com"}>`;
+
+  // 1) E-postayı log dosyasına yaz (Test/Doğrulama kolaylığı için)
   try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-    });
+    const logDir = path.join(process.cwd(), "public");
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir);
+    }
+    const logPath = path.join(logDir, "emails.log");
+    const logEntry = `\n[${new Date().toISOString()}]\nTO: ${to}\nSUBJECT: ${subject}\nTEXT: ${text || "HTML"}\nHTML: ${html || ""}\n${"=".repeat(80)}\n`;
+    fs.appendFileSync(logPath, logEntry, "utf8");
+    console.log(`📧 E-posta gönderim logu kaydedildi: public/emails.log`);
+  } catch (err) {
+    console.error("E-posta log dosyasına yazılamadı:", err);
+  }
 
+  // 2) Gerçek SMTP üzerinden göndermeyi dene
+  try {
     const info = await transporter.sendMail({
-      from: `"Leadnova System" <${process.env.GMAIL_USER}>`,
+      from,
       to,
       subject,
+      text,
       html,
     });
-    console.log("Message sent: %s", info.messageId);
+    console.log(`📧 Gerçek E-posta gönderildi! MessageId: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
   } catch (error: any) {
-    if (error.code === 'EAUTH') {
-      console.error("KRİTİK MAİL HATASI: Gmail kimlik doğrulaması (App Password) geçersiz. Lütfen .env dosyasındaki GMAIL_APP_PASSWORD bilgisini kontrol edin.");
-    } else {
-      console.error("Error sending email:", error);
-    }
-    // Hata durumunda uygulamanın geri kalanının çökmemesi için sessizce hata dönüyoruz
-    return { success: false, error: error.message };
+    console.warn(`⚠️ E-posta SMTP üzerinden gönderilemedi (Bu lokalde normaldir, log dosyasına yazıldı): ${error.message}`);
+    return { success: false, warning: "SMTP gönderimi başarısız ancak log kaydedildi." };
   }
-};
+}
 
-const LOGO_URL = "https://i.ibb.co/Gr8zFCd/kurumsal.jpg";
-
-/**
- * Kurumsal Aktivasyon Maili
- */
-export const sendActivationEmail = async (toEmail: string) => {
+// Hoşgeldin Maili Gönder
+export async function sendWelcomeEmail(toEmail: string, fullName: string, username: string) {
+  const subject = "Mutlukal Depo Sistemine Hoş Geldiniz!";
+  const text = `Merhaba ${fullName},\n\nMutlukal Depo Yönetim Sistemine başarıyla kayıt oldunuz. Kullanıcı adınız: @${username}\n\nİyi çalışmalar dileriz.`;
   const html = `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8fafc; padding: 40px 20px;">
-      <div style="background-color: #ffffff; border-radius: 24px; padding: 48px; shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
-        <center><img src="${LOGO_URL}" alt="Novexis Logo" style="width: 180px; margin-bottom: 40px;"></center>
-        
-        <h2 style="color: #0f172a; font-size: 24px; font-weight: 800; text-align: center; margin-bottom: 24px;">Leadnova Dünyasına Hoş Geldiniz</h2>
-        
-        <p style="color: #475569; font-size: 16px; line-height: 1.7; margin-bottom: 30px;">
-          Sayın Yöneticimiz,<br><br>
-          Leadnova Yeni Nesil Depo ve Üretim Yönetim Sistemi altyapısına hoş geldiniz. Şirketinizin dijital dönüşüm yolculuğunda bizi tercih ettiğiniz için teşekkür ederiz.
-        </p>
-        
-        <p style="color: #475569; font-size: 15px; line-height: 1.7; margin-bottom: 32px;">
-          Leadnova olarak bizler sadece bir yazılım değil; hataları sıfırlayan, ölü stoğu nakde çeviren ve üretim hattınızı kusursuzlaştıran uçtan uca bir ekosistem sunuyoruz. Sisteminizi hemen aktif etmek ve kurulumu tamamlamak için lütfen aşağıdaki bağlantıya tıklayarak giriş yapınız.
-        </p>
-        
-        <center>
-          <a href="https://stok.novexistech.com/tr" style="display: inline-block; background-color: #4f46e5; color: #ffffff; padding: 18px 36px; border-radius: 12px; font-weight: 700; text-decoration: none; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);">
-            Leadnova Sistemini Aktive Et
-          </a>
-        </center>
-        
-        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 40px 0;">
-        
-        <p style="color: #94a3b8; font-size: 12px; text-align: center; line-height: 1.6;">
-          Bu e-posta otomatik olarak gönderilmiştir. Lütfen yanıtlamayınız.<br>
-          © ${new Date().getFullYear()} Novexis Tech | Leadnova ERP Solutions
-        </p>
-      </div>
+    <div style="font-family: sans-serif; padding: 20px; color: #0f172a; background-color: #f8fafc;">
+      <h2 style="color: #ea580c;">Mutlukal Depo Sistemine Hoş Geldiniz!</h2>
+      <p>Merhaba <strong>${fullName}</strong>,</p>
+      <p>Mutlukal Depo Yönetim Sistemine e-posta adresiniz başarıyla tanımlandı.</p>
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+      <p style="font-size: 14px;">Kullanıcı Adınız: <strong>@${username}</strong></p>
+      <p style="font-size: 14px;">Bu e-posta adresine sistem üzerinden stok yetersizlik uyarıları ve kritik bildirimler gönderilecektir.</p>
+      <p style="font-size: 13px; color: #64748b; margin-top: 30px;">© 2026 Mutlukal Gıda San. ve Tic. A.Ş.</p>
+    </div>
+  `;
+  return sendEmail({ to: toEmail, subject, text, html });
+}
+
+// Stok Yetersizliği Maili Gönder
+export async function sendStockShortageEmail({
+  to,
+  ordersCount,
+  items,
+}: {
+  to: string;
+  ordersCount: number;
+  items: Array<{
+    machineName: string;
+    productName: string;
+    missingItems: Array<{ name: string; needed: number; current: number; unit: string }>;
+  }>;
+}) {
+  const subject = `⚠️ UYARI: İş Emirlerinde Stok Yetersizliği Tespit Edildi!`;
+
+  let text = `Merhaba,\n\nPlanlanan iş emirlerinde stok yetersizliği tespit edilmiştir.\n\n`;
+  let tableRowsHtml = "";
+
+  items.forEach((item) => {
+    text += `Makine: ${item.machineName} - Ürün: ${item.productName}\n`;
+    item.missingItems.forEach((m) => {
+      text += `  - Eksik Malzeme: ${m.name} | Gerekli: ${m.needed} ${m.unit} | Mevcut: ${m.current} ${m.unit}\n`;
+      tableRowsHtml += `
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+          <td style="padding: 10px; font-size: 13px;"><strong>${item.machineName}</strong></td>
+          <td style="padding: 10px; font-size: 13px;">${item.productName}</td>
+          <td style="padding: 10px; font-size: 13px; color: #dc2626;"><strong>${m.name}</strong></td>
+          <td style="padding: 10px; font-size: 13px; text-align: right;">${m.needed} ${m.unit}</td>
+          <td style="padding: 10px; font-size: 13px; text-align: right; color: #dc2626;">${m.current} ${m.unit}</td>
+        </tr>
+      `;
+    });
+    text += `\n`;
+  });
+
+  const html = `
+    <div style="font-family: sans-serif; padding: 20px; color: #0f172a; background-color: #f8fafc;">
+      <h2 style="color: #dc2626; margin-bottom: 10px;">⚠️ Kritik Stok Yetersizliği Bildirimi</h2>
+      <p>Merhaba,</p>
+      <p>S:\u0130\u015f Emirleri dizinindeki yeni iş emirlerine göre üretilecek <strong>${ordersCount} iş emri</strong> için depoda bazı ambalaj ve katkı malzemelerinin yetersiz olduğu tespit edilmiştir:</p>
+      
+      <table style="width: 100%; border-collapse: collapse; margin-top: 15px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <thead>
+          <tr style="background-color: #f1f5f9; text-align: left;">
+            <th style="padding: 10px; font-size: 12px; font-weight: bold; color: #475569;">Makine</th>
+            <th style="padding: 10px; font-size: 12px; font-weight: bold; color: #475569;">Hedef Ürün</th>
+            <th style="padding: 10px; font-size: 12px; font-weight: bold; color: #475569;">Eksik Malzeme</th>
+            <th style="padding: 10px; font-size: 12px; font-weight: bold; color: #475569; text-align: right;">Gereken</th>
+            <th style="padding: 10px; font-size: 12px; font-weight: bold; color: #475569; text-align: right;">Mevcut</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRowsHtml}
+        </tbody>
+      </table>
+
+      <p style="margin-top: 20px; font-size: 14px; color: #475569;">
+        Lütfen üretim aksamadan önce satın alma ve tedarik süreçlerini başlatınız.
+      </p>
+      <p style="font-size: 12px; color: #94a3b8; margin-top: 40px;">© 2026 Mutlukal Gıda San. ve Tic. A.Ş.</p>
     </div>
   `;
 
-  return sendMail({
-    to: toEmail,
-    subject: "Leadnova | Sistem Aktivasyonu ve Kurulum",
-    html,
-  });
-};
-
-/**
- * Kurumsal Hoş Geldin Maili
- */
-export const sendWelcomeEmail = async (toEmail: string, userName: string) => {
-  const html = `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8fafc; padding: 40px 20px;">
-      <div style="background-color: #ffffff; border-radius: 24px; padding: 48px; shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
-        <center><img src="${LOGO_URL}" alt="Novexis Logo" style="width: 180px; margin-bottom: 40px;"></center>
-        
-        <h2 style="color: #0f172a; font-size: 24px; font-weight: 800; text-align: center; margin-bottom: 24px;">Başarıyla Giriş Yapıldı!</h2>
-        
-        <p style="color: #475569; font-size: 16px; line-height: 1.7; margin-bottom: 30px;">
-          Sayın <strong>${userName}</strong>,<br><br>
-          Leadnova yönetim panelinize başarıyla giriş yaptınız! Artık deponuzun ve üretim hattınızın tüm kontrolü parmaklarınızın ucunda.
-        </p>
-        
-        <div style="background-color: #f1f5f9; border-radius: 16px; padding: 24px; margin-bottom: 32px;">
-          <h3 style="color: #1e293b; font-size: 16px; font-weight: 700; margin-top: 0; margin-bottom: 16px;">Leadnova ile Neler Yapabilirsiniz?</h3>
-          <ul style="color: #475569; font-size: 14px; padding-left: 20px; line-height: 1.8;">
-            <li style="margin-bottom: 8px;"><strong>Akıllı İçe Aktarım:</strong> Binlerce ürününüzü Excel üzerinden saniyeler içinde sisteme tanımlayabilirsiniz.</li>
-            <li style="margin-bottom: 8px;"><strong>Ürün Ağacı (BOM):</strong> Karmaşık üretim reçetelerinizi oluşturup, tek tıkla üretim firelerinizi yönetebilirsiniz.</li>
-            <li style="margin-bottom: 8px;"><strong>Nakit Tuzağı Analizi:</strong> Deponuzda hareketsiz yatan ve nakit akışınızı bozan ürünleri yapay zeka destekli raporlarla anında tespit edebilirsiniz.</li>
-            <li style="margin-bottom: 8px;"><strong>Çoklu Şube & Dil:</strong> İşletmeniz büyüdükçe farklı dillerde ve çoklu depo mimarisinde sisteminizi ölçeklendirebilirsiniz.</li>
-          </ul>
-        </div>
-        
-        <p style="color: #475569; font-size: 15px; line-height: 1.7; margin-bottom: 32px;">
-          Leadnova olarak, sadece depo yönetimi değil; kurumsal yazılım çözümleri, e-ticaret altyapıları ve siber güvenlik hizmetlerimizle de her zaman yanınızdayız. Vizyonumuzu ve diğer teknoloji çözümlerimizi incelemek için web sitemizi ziyaret edebilirsiniz.
-        </p>
-        
-        <center>
-          <a href="https://novexistech.com/" style="display: inline-block; background-color: #1e293b; color: #ffffff; padding: 18px 36px; border-radius: 12px; font-weight: 700; text-decoration: none; font-size: 16px;">
-            Leadnova Kurumsal Çözümlerini Keşfedin
-          </a>
-        </center>
-        
-        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 40px 0;">
-        
-        <p style="color: #94a3b8; font-size: 12px; text-align: center;">
-          © ${new Date().getFullYear()} Novexis Tech | Global Technology & ERP
-        </p>
-      </div>
-    </div>
-  `;
-
-  return sendMail({
-    to: toEmail,
-    subject: "Leadnova Panel Girişi Başarılı!",
-    html,
-  });
-};
+  return sendEmail({ to, subject, text, html });
+}

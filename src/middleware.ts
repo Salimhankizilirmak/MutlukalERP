@@ -1,28 +1,40 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import createMiddleware from "next-intl/middleware";
-import { routing } from "./i18n/routing";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { verifySession, COOKIE_NAME } from "@/lib/session";
 
-const intlMiddleware = createMiddleware(routing);
+const PUBLIC_ROUTES = ["/login"];
 
-const isProtectedRoute = createRouteMatcher([
-  "/:locale/admin(.*)",
-  "/:locale/dashboard(.*)",
-  "/admin(.*)",
-  "/dashboard(.*)",
-]);
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
 
-export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) {
-    await auth.protect();
+  // Statik dosyalar ve public rotalar
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/favicon") ||
+    PUBLIC_ROUTES.some((r) => pathname.startsWith(r))
+  ) {
+    return NextResponse.next();
   }
-  return intlMiddleware(req);
-});
+
+  // Token kontrolü
+  const token = req.cookies.get(COOKIE_NAME)?.value;
+  if (!token) {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
+
+  const session = await verifySession(token);
+  if (!session) {
+    const response = NextResponse.redirect(new URL("/login", req.url));
+    response.cookies.delete(COOKIE_NAME);
+    return response;
+  }
+
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    // Always run for API routes
-    "/(api|trpc)(.*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|xlsx)).*)",
   ],
 };

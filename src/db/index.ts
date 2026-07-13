@@ -1,10 +1,10 @@
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
+import path from "path";
 
-const client = createClient({
-  url: process.env.TURSO_DATABASE_URL!,
-  authToken: process.env.TURSO_AUTH_TOKEN!,
-});
+const dbPath = process.env.DATABASE_URL ?? `file:${path.join(process.cwd(), "mutlukal.db")}`;
+
+const client = createClient({ url: dbPath });
 
 export const db = drizzle(client, { schema });

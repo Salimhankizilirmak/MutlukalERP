@@ -40,3 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 /scratch
+
+# local database and logs
+*.db
+*.db-journal
+*.log
+
