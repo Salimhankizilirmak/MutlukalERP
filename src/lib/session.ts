@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
 const SECRET_KEY = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? "mutlukal-stok-super-secret-key-2026"
+  "mutlukal-stok-super-secret-key-2026-fixed-key-safe"
 );
 
 export const COOKIE_NAME = "mutlukal_auth";
@@ -45,7 +45,7 @@ export async function setSessionCookie(token: string) {
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: false, // Hem http hem de https ortamlarında sorunsuz çalışma garantisi
     sameSite: "lax",
     maxAge: SESSION_DURATION,
     path: "/",
