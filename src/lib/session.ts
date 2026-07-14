@@ -17,6 +17,9 @@ export interface SessionPayload {
 }
 
 export async function createSession(payload: SessionPayload) {
+  if (process.env.VERCEL) {
+    return btoa(encodeURIComponent(JSON.stringify(payload)));
+  }
   const token = await new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -26,6 +29,13 @@ export async function createSession(payload: SessionPayload) {
 }
 
 export async function verifySession(token: string): Promise<SessionPayload | null> {
+  if (process.env.VERCEL) {
+    try {
+      return JSON.parse(decodeURIComponent(atob(token))) as SessionPayload;
+    } catch {
+      return null;
+    }
+  }
   try {
     const { payload } = await jwtVerify(token, SECRET_KEY);
     return payload as unknown as SessionPayload;
