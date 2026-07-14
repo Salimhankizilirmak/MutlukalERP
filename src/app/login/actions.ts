@@ -37,7 +37,7 @@ export async function loginAction(_: unknown, formData: FormData) {
     });
 
     await setSessionCookie(token);
-    redirect("/dashboard");
+    return { success: true };
   }
 
   const user = await db
@@ -72,5 +72,5 @@ export async function loginAction(_: unknown, formData: FormData) {
   });
 
   await setSessionCookie(token);
-  redirect("/dashboard");
+  return { success: true };
 }
