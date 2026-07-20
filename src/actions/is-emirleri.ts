@@ -20,6 +20,7 @@ export interface WorkOrderCheck {
   machineName: string;
   firma: string;
   productName: string;
+  cinsi: string;
   targetQty: number; // Koli
   status: "available" | "shortage" | "unknown_product";
   dbProductId?: string;
@@ -53,29 +54,41 @@ async function parseWorkOrdersFromFile(filePath: string, sheetName: string): Pro
     wb = XLSX.read(fileBuffer, { type: "buffer" });
     console.log(`Başarıyla okundu (ilk deneme): ${filePath}`);
   } catch (err: any) {
-    console.warn(`Dosya okunamadı (${filePath}), public fallback deneniyor. Hata: ${err.message}`);
+    console.warn(`Dosya okunamadı (${filePath}), yedek klasörler deneniyor. Hata: ${err.message}`);
     const fileName = path.basename(filePath).toUpperCase();
     const isOrman = fileName.includes("ORMAN");
-    const publicDir = path.join(process.cwd(), "public");
+    
+    const fallbackDirs = [
+      "D:\\Uretim\\İş Emirleri",
+      "S:\\İş Emirleri",
+      path.join(process.cwd(), "public"),
+    ];
     
     let fallbackPath = "";
-    if (fs.existsSync(publicDir)) {
-      const files = fs.readdirSync(publicDir);
-      console.log(`Public klasöründeki dosyalar taranıyor... Toplam dosya: ${files.length}`);
-      for (const file of files) {
-        const fileUpper = file.toUpperCase();
-        if (fileUpper.endsWith(".XLSX")) {
-          if (isOrman && fileUpper.includes("MUTLU") && fileUpper.includes("ORMAN")) {
-            fallbackPath = path.join(publicDir, file);
-            console.log(`Orman için fallback eşleşti: ${fallbackPath}`);
-            break;
-          } else if (!isOrman && fileUpper.includes("MUTLUKAL") && !fileUpper.includes("ORMAN")) {
-            fallbackPath = path.join(publicDir, file);
-            console.log(`Mutlukal için fallback eşleşti: ${fallbackPath}`);
-            break;
+    for (const dir of fallbackDirs) {
+      if (fs.existsSync(dir)) {
+        try {
+          const files = fs.readdirSync(dir);
+          console.log(`Dizin taranıyor: ${dir}. Dosya sayısı: ${files.length}`);
+          for (const file of files) {
+            const fileUpper = file.toUpperCase();
+            if (fileUpper.endsWith(".XLSX") && !file.startsWith("~$")) {
+              if (isOrman && fileUpper.includes("MUTLU") && fileUpper.includes("ORMAN")) {
+                fallbackPath = path.join(dir, file);
+                console.log(`Orman için fallback eşleşti: ${fallbackPath}`);
+                break;
+              } else if (!isOrman && fileUpper.includes("MUTLUKAL") && !fileUpper.includes("ORMAN")) {
+                fallbackPath = path.join(dir, file);
+                console.log(`Mutlukal için fallback eşleşti: ${fallbackPath}`);
+                break;
+              }
+            }
           }
+        } catch (e) {
+          console.warn(`Dizin okunamadı: ${dir}`);
         }
       }
+      if (fallbackPath) break;
     }
 
     if (fallbackPath && fs.existsSync(fallbackPath)) {
@@ -84,11 +97,11 @@ async function parseWorkOrdersFromFile(filePath: string, sheetName: string): Pro
         wb = XLSX.read(fallbackBuffer, { type: "buffer" });
         console.log(`Başarıyla okundu (fallback): ${fallbackPath}`);
       } catch (innerErr: any) {
-        console.error(`Public fallback dosyası da okunamadı (${fallbackPath}):`, innerErr.message);
+        console.error(`Yedek dosya da okunamadı (${fallbackPath}):`, innerErr.message);
         return [];
       }
     } else {
-      console.warn(`Eşleşen fallback dosyası bulunamadı.`);
+      console.warn(`Eşleşen yedek dosya bulunamadı.`);
       return [];
     }
   }
@@ -185,6 +198,7 @@ async function parseWorkOrdersFromFile(filePath: string, sheetName: string): Pro
         machineName: currentMachine,
         firma,
         productName: workOrderProductName,
+        cinsi: cinsi || "",
         targetQty: uretilecekKoli,
         status: "unknown_product",
         missingItems: [],
@@ -216,6 +230,7 @@ async function parseWorkOrdersFromFile(filePath: string, sheetName: string): Pro
       machineName: currentMachine,
       firma,
       productName: workOrderProductName,
+      cinsi: cinsi || "",
       targetQty: uretilecekKoli,
       status: missingItems.length > 0 ? "shortage" : "available",
       dbProductId: matchedDbProduct.id,
@@ -232,6 +247,7 @@ export async function getNextWorkOrdersCheck() {
   if (!session) return { error: "Oturum bulunamadı." };
 
   const searchDirs = [
+    "D:\\Uretim\\İş Emirleri",
     "S:\\İş Emirleri",
     path.join(process.cwd(), "public"),
   ];
